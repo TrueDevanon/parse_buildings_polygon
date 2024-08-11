@@ -15,7 +15,6 @@ import time
 import os
 import sys
 
-
 logger.add(
     sink='collect_buildings.log',
     format="{time:YYYY-MM-DD HH:mm:ss!UTC} | {level} | {name}:{function}:{line} - {message}",
@@ -24,7 +23,7 @@ logger.add(
     diagnose=True,
     catch=True)
 
-poly_cols = ['coord', 'name', 'addr_country', 'addr_city', 'addr_street',
+poly_cols = ['id', 'coord', 'name', 'addr_country', 'addr_city', 'addr_street',
              'addr_housenumber', 'building', 'building_levels', 'type', 'geometry']
 
 
@@ -37,22 +36,33 @@ def list_filter(lst: list, c_num: int):
         yield e_c
 
 
-def collect_lonk(lat: float, lon: float, radius: int):
+def collect_link_radius(lat: float, lon: float, radius: int):
     return f'http://overpass-api.de/api/interpreter?data=[out:json][timeout:300];(way["building"](around:{radius},{lat},{lon});relation["building"](around:{radius},{lat},{lon}););out body;>;out skel qt;'
 
 
+def collect_link_boundary(lat: float, lon: float, radius: int):
+    return f'http://overpass-api.de/api/interpreter?data=[out:json][timeout:300];(way["building"]({lat},{lon});relation["building"]["type"="multipolygon"]({lat},{lon}););out;>;out qt;'
+
+
+method_dict = {'radius': collect_link_radius,
+               'boundary': collect_link_boundary}
+
+
 class CollectBuildings:
-    def __init__(self, num_threads: int = 1, filename: str = 'start.csv', radius: int = 100, force: bool = True):
+    def __init__(self, num_threads: int = 1, filename: str = 'start.csv', radius: int = 200, type: str = 'boundary',
+                 force: bool = True):
         """
         Collect buildings polygon by radius of points.
         :param num_threads: default value 10
-        :param filename: default value start.csv (require columns lat, lon)
-        :param radius: default 150
+        :param filename: default value start.csv (require columns lat, lon or lat_min, lat_max, lng_min, lng_max)
+        :param radius: default 200
+        :param type: boundary or radius
         :param force: default True ; if True use without different between existent file
         """
         self.num_threads = num_threads
-        self.link_list = self.get_link_list(start_df=self._init_start_df(filename, force), num_threads=num_threads,
-                                            radius=radius)
+        self.link_list = self.get_link_list(start_df=self._init_start_df(filename, force),
+                                            num_threads=num_threads,
+                                            radius=radius, type=type)
         self.lock = Lock()
 
     @staticmethod
@@ -60,7 +70,12 @@ class CollectBuildings:
         start_df = pd.read_csv(filename).dropna(subset=['lat', 'lon'])
         assert len(col := [x for x in ['lat', 'lon'] if
                            not any(xs == x for xs in start_df.columns)]) == 0, f'columns not exists {col}'
-        start_df['coord'] = start_df['lat'].astype(str) + ',' + start_df['lon'].astype(str)
+        try:
+            float(start_df['lat'][0].split(',')[0])
+        except ValueError:
+            raise 'Check your file'
+        #
+        start_df['coord'] = ','.join([str(x) for x in ['lat', 'lon']])
         if force is True:
             return start_df
         else:
@@ -71,10 +86,10 @@ class CollectBuildings:
             return start_df
 
     @staticmethod
-    def get_link_list(start_df: pd.DataFrame, num_threads: int, radius: int):
+    def get_link_list(start_df: pd.DataFrame, num_threads: int, radius: int, type: str):
         link_list = []
         for lat, lon in zip(start_df['lat'], start_df['lon']):
-            link_list.append(collect_lonk(lat=lat, lon=lon, radius=radius))
+            link_list.append(method_dict[type](lat=lat, lon=lon, radius=radius))
         return list(list_filter(link_list, num_threads))
 
     @staticmethod
@@ -186,7 +201,7 @@ class CollectBuildings:
                         logger.error(f'QUOTA ERROR FOR WORKER # {num_thread}')
                         raise Exception('bad ip')
                     break
-                except:
+                except Exception:
                     count += 1
                     logger.info(f'new proxy for worker # {num_thread}')
                     if self.check_conn(num_thread) is False:
@@ -216,5 +231,5 @@ if __name__ == '__main__':
     else:
         num_threads = 10
     logger.info(f'Collect with {sys.argv[1]} thread numbers')
-    c_b = CollectBuildings(num_threads=num_threads, filename='start.csv', radius=150, force=False)
+    c_b = CollectBuildings(num_threads=num_threads, filename='start.csv', radius=200, type='boundary', force=False)
     c_b.start_collect()

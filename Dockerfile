@@ -13,7 +13,7 @@ RUN pip3 install shapely==2.0.3
 RUN pip3 install pysocks==1.7.1
 RUN pip3 install stem==1.8.2
 RUN pip3 install fake_useragent==1.5.0
-RUN pip3 install loguru
+RUN pip3 install loguru==0.7.2
 
 WORKDIR /parse/
 ENTRYPOINT ["/entrypoint.sh"]
