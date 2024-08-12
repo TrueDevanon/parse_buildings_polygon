@@ -45,7 +45,7 @@ class CreateGridPoints:
                 grid.append([lat, n_lng])
 
         grid = []
-        logger.info('Number of steps ~ ', np.ceil((self.lat_max - self.lat_min) / self.step[0]))
+        logger.info(f'Number of steps ~ {np.ceil((self.lat_max - self.lat_min) / self.step[0])}')
         progress = tqdm()
         lat, lng = self.lat_min, self.lng_min
         while lat <= self.lat_max:
