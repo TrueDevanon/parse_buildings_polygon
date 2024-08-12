@@ -1,4 +1,4 @@
-# Collect the building's polygon by bbox or radius of points.
+# Collect the buildings polygon by bbox or radius of points.
 
 Multithreaded collecting the building's polygon by a bbox or radius of points from OpenStreetMap using the Tor network.
 
