@@ -59,9 +59,8 @@ class CollectBuildings:
         :param type: boundary or radius
         :param force: default True ; if True use without different between existent file
         """
-        self.num_threads = num_threads
+        self.num_threads = int(num_threads)
         self.link_list = self.get_link_list(start_df=self._init_start_df(filename, force),
-                                            num_threads=num_threads,
                                             radius=radius, type=type)
         self.lock = Lock()
 
@@ -86,11 +85,11 @@ class CollectBuildings:
             return start_df
 
     @staticmethod
-    def get_link_list(start_df: pd.DataFrame, num_threads: int, radius: int, type: str):
+    def get_link_list(start_df: pd.DataFrame, radius: int, type: str):
         link_list = []
         for lat, lon in zip(start_df['lat'], start_df['lon']):
             link_list.append(method_dict[type](lat=lat, lon=lon, radius=radius))
-        return list(list_filter(link_list, num_threads))
+        return list(list_filter(link_list, self.num_threads))
 
     @staticmethod
     def get_proxy(num_thread: int):
