@@ -60,7 +60,7 @@ class CreateGridPoints:
         return grid
 
     def save_csv(self, filename: str):
-        pd.DataFrame(self.grid, columns=['lat', 'lng']).to_csv(filename, index=False)
+        pd.DataFrame(self.grid, columns=['lat', 'lon']).to_csv(filename, index=False)
 
     def convert_boundary_to_radius(self):
         self.grid = [x[:2] for x in self.grid]
