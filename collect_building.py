@@ -14,6 +14,8 @@ from stem.control import Controller
 import time
 import os
 import sys
+from functools import partial
+
 
 logger.add(
     sink='collect_buildings.log',
@@ -60,8 +62,8 @@ class CollectBuildings:
         :param force: default True ; if True use without different between existent file
         """
         self.num_threads = int(num_threads)
-        self.link_list = self.get_link_list(start_df=self._init_start_df(filename, force),
-                                            radius=radius, type=type)
+        self.get_link_list = partial(self.get_link_list,self._init_start_df(filename, force),
+                                            radius, type)
         self.lock = Lock()
 
     @staticmethod
@@ -84,11 +86,12 @@ class CollectBuildings:
             start_df = start_df[~start_df['coord'].isin(df_t['coord'])]
             return start_df
 
-    def get_link_list(self, start_df: pd.DataFrame, radius: int, type: str):
+    @staticmethod
+    def get_link_list(start_df: pd.DataFrame, radius: int, type: str, num_threads: int):
         link_list = []
         for lat, lon in zip(start_df['lat'], start_df['lon']):
             link_list.append(method_dict[type](lat=lat, lon=lon, radius=radius))
-        return list(list_filter(link_list, self.num_threads))
+        return list(list_filter(link_list, num_threads))
 
     @staticmethod
     def get_proxy(num_thread: int):
@@ -152,10 +155,13 @@ class CollectBuildings:
         for pr in prep:
             pr.join()
         logger.info(f'Prepare for tor startup elapsed: {datetime.now() - start}')
+        workers = [x for x,y in enumerate(prep) if y.exitcode == 0]
+        logger.info(f'successful workers shape: {len(workers)} out of {self.num_threads}')
+        self.link_list = self.get_link_list(len(workers))
         # logger.info(f'your ip is ---> {requests.get("http://ident.me", proxies=self.get_proxy(0), timeout=10).text}')
         logger.info(f'job shape per worker: {len(self.link_list[0])}')
-        for num_thread in range(self.num_threads):
-            p = Process(target=self.parallel, args=(num_thread, self.link_list[num_thread]))
+        for index, num_thread in enumerate(workers):
+            p = Process(target=self.parallel, args=(num_thread, self.link_list[index]))
             procs.append(p)
             p.start()
         for pr in procs:
