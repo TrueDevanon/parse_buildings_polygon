@@ -52,14 +52,14 @@ method_dict = {'radius': collect_link_radius,
 
 class CollectBuildings:
     def __init__(self, num_threads: int = 1, filename: str = 'start.csv', radius: int = 200, type: str = 'boundary',
-                 force: bool = True):
+                 force: bool = False):
         """
         Collect buildings polygon by radius of points.
         :param num_threads: default value 10
         :param filename: default value start.csv (require columns lat, lon or lat_min, lat_max, lng_min, lng_max)
         :param radius: default 200
         :param type: boundary or radius
-        :param force: default True ; if True use without different between existent file
+        :param force: default False; if True then force create a new file, if False then skip the already collected data and append to the existing file
         """
         self.num_threads = int(num_threads)
         self.get_link_list = partial(self.get_link_list,self._init_start_df(filename, force),
@@ -76,8 +76,12 @@ class CollectBuildings:
         except ValueError:
             raise 'Check your file'
         #
-        start_df['coord'] = ','.join([str(x) for x in ['lat', 'lon']])
+        if type == 'radius':
+            start_df['coord'] = start_df['lon'].astype(str) + ',' + start_df['lat'].astype(str)
+        if type == 'boundary':
+            start_df['coord'] = start_df['lat'].map(lambda x: (str(x.split(',')[1])+','+str(x.split(',')[0])).strip())
         if force is True:
+            pd.DataFrame(columns=poly_cols).to_csv(f'buildings.csv', index=False)
             return start_df
         else:
             if not os.path.isfile('buildings.csv'):
