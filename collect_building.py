@@ -210,7 +210,7 @@ class CollectBuildings:
                 try:
                     response = requests.get(url=link, proxies=proxy, headers=headers, timeout=30)
                     if response.status_code != 200 or 'quota of your IP address' in response.text:
-                        logger.error(f'QUOTA ERROR FOR WORKER # {num_thread}')
+                        logger.warning(f'QUOTA ERROR FOR WORKER # {num_thread}')
                         raise Exception('bad ip')
                     break
                 except Exception:
